@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:apivideo_live_stream/apivideo_live_stream.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:meta/meta.dart';
 
 import 'listeners.dart';
@@ -88,6 +89,17 @@ class ApiVideoLiveStreamController {
   /// Do not call when in live or when preview is running.
   Future<void> setVideoConfig(VideoConfig videoConfig) {
     return _platform.setVideoConfig(videoConfig);
+  }
+
+  Future<void> toggleVideoMute() async {
+    if (!_isInitialized) {
+      throw Exception('Live stream controller is not initialized');
+    }
+    try {
+      await _platform.toggleVideoMute();
+    } on PlatformException catch (e) {
+      throw Exception('Failed to toggle video mute: ${e.message}');
+    }
   }
 
   /// Sets new audio parameters.

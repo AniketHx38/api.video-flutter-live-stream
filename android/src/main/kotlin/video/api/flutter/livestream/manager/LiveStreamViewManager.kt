@@ -21,14 +21,15 @@ class LiveStreamViewManager(
     private val onConnectionFailed: (String) -> Unit,
     private val onGenericError: (Exception) -> Unit,
     private val onVideoSizeChanged: (Size) -> Unit,
-) :
-    OnConnectionListener, OnErrorListener {
+) : OnConnectionListener, OnErrorListener {
     private val flutterTexture = textureRegistry.createSurfaceTexture()
     val textureId: Long
         get() = flutterTexture.id()
 
     private var _isPreviewing = false
     private var _isStreaming = false
+    private var _isVideoMuted = false
+
     val isStreaming: Boolean
         get() = _isStreaming
 
@@ -53,7 +54,7 @@ class LiveStreamViewManager(
         }
         streamer.configure(videoConfig)
         _videoConfig = videoConfig
-        if (wasPreviewing) {
+        if (wasPreviewing && !_isVideoMuted) {
             startPreview(onSuccess, onError)
         } else {
             onSuccess()
@@ -85,15 +86,6 @@ class LiveStreamViewManager(
                 }
             },
             onShowPermissionRationale = { _ ->
-                /**
-                 * Require an AppCompat theme to use MaterialAlertDialogBuilder
-                 *
-                context.showDialog(
-                R.string.permission_required,
-                R.string.record_audio_permission_required_message,
-                android.R.string.ok,
-                onPositiveButtonClick = { onRequiredPermissionLastTime() }
-                ) */
                 onError(SecurityException("Missing permission Manifest.permission.RECORD_AUDIO"))
             },
             onDenied = {
@@ -122,20 +114,23 @@ class LiveStreamViewManager(
                 }
             },
             onShowPermissionRationale = { _ ->
-                /**
-                 * Require an AppCompat theme to use MaterialAlertDialogBuilder
-                 *
-                 * context.showDialog(
-                R.string.permission_required,
-                R.string.camera_permission_required_message,
-                android.R.string.ok,
-                onPositiveButtonClick = { onRequiredPermissionLastTime() }
-                )*/
                 onError(SecurityException("Missing permission Manifest.permission.CAMERA"))
             },
             onDenied = {
                 onError(SecurityException("Missing permission Manifest.permission.CAMERA"))
             })
+    }
+
+    fun toggleVideoMute() {
+        if (!_isStreaming) {
+            return // Do nothing if not streaming
+        }
+        _isVideoMuted = !_isVideoMuted
+        if (_isVideoMuted) {
+            streamer.stopPreview() // Stop video capture
+        } else {
+            streamer.startPreview(getSurface(videoConfig.resolution))
+        }
     }
 
     init {
@@ -155,6 +150,9 @@ class LiveStreamViewManager(
             try {
                 streamer.startStream()
                 _isStreaming = true
+                if (!_isVideoMuted) {
+                    streamer.startPreview(getSurface(videoConfig.resolution))
+                }
             } catch (e: Exception) {
                 streamer.disconnect()
                 onLost("Failed to start stream: ${e.message}")
@@ -172,6 +170,7 @@ class LiveStreamViewManager(
                 onDisconnected()
             }
             _isStreaming = false
+            _isVideoMuted = false // Reset mute state
         }
     }
 
@@ -183,7 +182,9 @@ class LiveStreamViewManager(
                     onError(IllegalStateException("Video has not been configured!"))
                 } else {
                     try {
-                        streamer.startPreview(getSurface(videoConfig.resolution))
+                        if (!_isVideoMuted) {
+                            streamer.startPreview(getSurface(videoConfig.resolution))
+                        }
                         _isPreviewing = true
                         onSuccess()
                     } catch (e: Exception) {
@@ -192,15 +193,6 @@ class LiveStreamViewManager(
                 }
             },
             onShowPermissionRationale = { _ ->
-                /**
-                 * Require an AppCompat theme to use MaterialAlertDialogBuilder
-                 *
-                 * context.showDialog(
-                R.string.permission_required,
-                R.string.camera_permission_required_message,
-                android.R.string.ok,
-                onPositiveButtonClick = { onRequiredPermissionLastTime() }
-                )*/
                 onError(SecurityException("Missing permission Manifest.permission.CAMERA"))
             },
             onDenied = {
@@ -215,14 +207,10 @@ class LiveStreamViewManager(
 
     private fun getSurface(resolution: Size): Surface {
         val surfaceTexture = flutterTexture.surfaceTexture().apply {
-            setDefaultBufferSize(
-                resolution.width,
-                resolution.height
-            )
+            setDefaultBufferSize(resolution.width, resolution.height)
         }
         return Surface(surfaceTexture)
     }
-
 
     override fun onSuccess() {
         onConnectionSucceeded()

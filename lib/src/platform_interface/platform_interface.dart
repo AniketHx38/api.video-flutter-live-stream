@@ -44,6 +44,10 @@ abstract class ApiVideoLiveStreamPlatform extends PlatformInterface {
     throw UnimplementedError('dispose() has not been implemented.');
   }
 
+  Future<void> toggleVideoMute() {
+    throw UnimplementedError('toggleVideoMute() has not been implemented.');
+  }
+
   Future<void> setVideoConfig(VideoConfig videoConfig) {
     throw UnimplementedError('setVideoConfig() has not been implemented.');
   }

@@ -124,6 +124,10 @@ class LiveStreamHostApiImpl(
         return flutterView!!.videoConfig.resolution.toNativeResolution()
     }
 
+    override fun toggleVideoMute() {
+        flutterView?.toggleVideoMute()
+    }
+
     private fun executeOnMain(block: () -> Unit) {
         mainHandler.post {
             block()
